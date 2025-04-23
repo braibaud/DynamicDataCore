@@ -1,0 +1,29 @@
+@using DotNetEd.CoreAdmin
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<JsonLocalizer> _localizer
+@{
+    ViewData["Page_Title"] = ViewBag.DbSetName;
+    Layout = "_CoreAdminLayout";
+}
+
+<h1 class="display-4">@ViewBag.DbSetName - @_localizer["View"]</h1>
+
+<div class="row">
+    <div class="col-md-12">
+        <dl class="row">
+            @foreach (var property in ViewBag.Properties)
+            {
+                <dt class="col-sm-3">@property.Name</dt>
+                <dd class="col-sm-9">@property.Value</dd>
+            }
+        </dl>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <p class="mt-2">
+            @Html.ActionLink(@_localizer["GoBack"], "Index", new { Id = ViewBag.DbSetName }, new { @class = "btn btn-secondary" })
+        </p>
+    </div>
+</div>

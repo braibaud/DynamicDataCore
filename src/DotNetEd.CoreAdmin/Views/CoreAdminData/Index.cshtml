@@ -4,18 +4,116 @@
 @using NonFactors.Mvc.Grid
 @using System.Linq.Expressions
 @using Microsoft.EntityFrameworkCore
-@using System.ComponentModel.DataAnnotations;
+@using System.ComponentModel.DataAnnotations
 @using System.Reflection
+@using System.Collections.Generic
+@using Microsoft.EntityFrameworkCore.Metadata
+@using Microsoft.AspNetCore.Html
+@using System.Net
 @inject IEnumerable<DotNetEd.CoreAdmin.CoreAdminOptions> CoreAdminOptions
 @model DotNetEd.CoreAdmin.ViewModels.DataListViewModel
 @inject IStringLocalizer<JsonLocalizer> _localizer
+
+@functions {
+    private void PopulateQueryStringElements(object item, IEnumerable<IProperty> pkProperties, IDictionary<string, string> elements)
+    {
+        if (item != null) 
+        {
+            foreach (var pk in pkProperties)
+            {
+                elements.Add(
+                    pk.Name, 
+                    pk.PropertyInfo.GetValue(item)?.ToString() ?? "_null_");
+            }
+        }
+    }
+
+    private string GenerateLink(object item, string action, string label, IEnumerable<IProperty> pkProperties)
+    {
+        Dictionary<string, string> elements = new Dictionary<string, string>();
+        PopulateQueryStringElements(item, pkProperties, elements);
+
+        string url = Url.Action(action, "CoreAdminData", new { dbSetName = Model.DbSetProperty.Name});
+        
+        if (elements.Count > 0)
+        {
+            if (url.Contains("?"))
+            {
+                url += "&";
+            }
+            else
+            {
+                url += "?";
+            }
+
+            url += string.Join("&", elements.Select(kvp => $"{WebUtility.UrlEncode(kvp.Key)}={WebUtility.UrlEncode(kvp.Value)}"));
+        }
+
+        return $"<a href=\"{url}\">{Html.Encode(label)}</a>";
+    }
+
+    private string GenerateActionLink(object item, string action, IEnumerable<IProperty> pkProperties)
+    {
+        return GenerateLink(item, action, _localizer[action], pkProperties);
+    }
+
+    private string GenerateNavigationLink(object item, IEnumerable<IProperty> pkProperties)
+    {
+        return GenerateLink(item, "Index", item.ToString(), pkProperties);
+    }
+    
+    private string GenerateEditLink(object item, IEnumerable<IProperty> pkProperties)
+    {
+        return GenerateActionLink(item, "Edit", pkProperties);
+    }
+
+    private string GenerateDeleteLink(object item, IEnumerable<IProperty> pkProperties)
+    {
+        return GenerateActionLink(item, "Delete", pkProperties);
+    }
+
+    private string GenerateViewLink(object item, IEnumerable<IProperty> pkProperties)
+    {
+        return GenerateActionLink(item, "ViewEntity", pkProperties);
+    }
+
+    private string GenerateRowActionLinks(object item, IEnumerable<IProperty> pkProperties)
+    {
+        var finalString = new System.Text.StringBuilder("<ul>");
+
+        finalString.Append($"<li>{GenerateEditLink(item, pkProperties)}</li>");
+        finalString.Append($"<li>{GenerateDeleteLink(item, pkProperties)}</li>");
+        finalString.Append($"<li>{GenerateViewLink(item, pkProperties)}</li>");
+
+        finalString.Append("</ul>");
+
+        return finalString.ToString();
+    }
+
+    private string GenerateCollectionLinks(IEnumerable collection, IEnumerable<IProperty> pkProperties)
+    {
+        var finalString = new System.Text.StringBuilder("<ul>");
+
+        foreach (var raw in collection)
+        {
+            finalString.Append($"<li>{GenerateNavigationLink(raw, pkProperties)}</li>");
+        }
+
+        finalString.Append("</ul>");
+
+        return finalString.ToString();
+    }
+}
 
 @{
     ViewData["Page_Title"] = Model.DbSetProperty.Name;
     Layout = "_CoreAdminLayout";
 
     var options = CoreAdminOptions.FirstOrDefault();
+    var entityType = Model.DbContext.Model.FindEntityType(Model.EntityType);
+    var navigations = entityType?.GetNavigations();
 }
+
 
 <h1 class="display-4">@Model.DbSetProperty.Name</h1>
 
@@ -28,163 +126,143 @@
 @(Html
     .Grid(Model.Data)
     .Build((columns) => {
-
-        foreach(var entityProperty in Model.EntityType.GetProperties())
+        foreach (var entityProperty in Model.EntityType.GetProperties())
         {
-
             ParameterExpression entity = Expression.Parameter(typeof(object), "ent");
             var changedType = Expression.Convert(entity, Model.EntityType);
             var property = Expression.Property(changedType, entityProperty.Name);
-            var propertyDisplayName = entityProperty.Name;
-            if(Attribute.IsDefined(entityProperty, typeof(DisplayAttribute)))
+            var propertyDisplayName = _localizer[entityProperty.Name].Value;
+
+            if (Attribute.IsDefined(entityProperty, typeof(DisplayAttribute)))
             {
-                var displayAttribute = entityProperty.GetCustomAttributes(typeof(DisplayAttribute),true).FirstOrDefault() as DisplayAttribute;
-                if(displayAttribute != null)
+                var displayAttribute = entityProperty.GetCustomAttributes(typeof(DisplayAttribute), true).FirstOrDefault() as DisplayAttribute;
+
+                if (displayAttribute != null)
                 {
                     var displayAutoGeneratedField = displayAttribute.GetAutoGenerateField();
-                    if(!( displayAutoGeneratedField.HasValue? displayAutoGeneratedField.Value : false ))
+
+                    if (!(displayAutoGeneratedField.HasValue ? displayAutoGeneratedField.Value : false))
                         continue;
-                        if(!string.IsNullOrEmpty(displayAttribute.Description))
-                    propertyDisplayName = displayAttribute.Description;
+
+                    if (!string.IsNullOrEmpty(displayAttribute.Description))
+                        propertyDisplayName = displayAttribute.Description;
                 }
-            }         
+            }
             else if (entityProperty.PropertyType == typeof(Boolean))
             {
                 var lambda = Expression.Lambda<Func<object, Boolean>>(property, entity);
-                columns.Add(lambda).RenderedAs(m=> Html.CheckBox(entityProperty.Name, lambda.Compile().Invoke(m))).Titled(propertyDisplayName);
+                columns.Add(lambda).RenderedAs(m => Html.CheckBox(entityProperty.Name, lambda.Compile().Invoke(m))).Titled(propertyDisplayName);
             }
             else if (entityProperty.PropertyType == typeof(byte[]))
             {
                 var lambda = Expression.Lambda<Func<object, byte[]>>(property, entity);
 
-                columns.Add(lambda).Titled(entityProperty.Name)
-                    .RenderedAs((value) => {
+                columns.Add(lambda).Titled(propertyDisplayName)
+                    .RenderedAs((value) =>
+                    {
                         var base64 = ImageUtils.WebBase64EncodeImageByteArrayOrNull(lambda.Compile().Invoke(value));
                         return base64 == null ? string.Empty : $"<img height='48' src='{base64}'>";
-                    } ).Encoded(false);
+                    }).Encoded(false);
             }
             else if (entityProperty.PropertyType.IsAssignableTo(typeof(IEnumerable)) && entityProperty.PropertyType != typeof(string))
             {
                 var lambda = Expression.Lambda<Func<object, object>>(property, entity);
 
-                columns.Add(lambda).Titled(entityProperty.Name)
-                    .RenderedAs((value) =>
-                    {
-                        var finalString = "<ul>";
-                        try
+                columns
+                    .Add(lambda)
+                    .Titled(propertyDisplayName)
+                    .Encoded(false)
+                    .RenderedAs(
+                        value =>
                         {
-                            foreach (var raw in (IEnumerable)entityProperty.GetValue(value)!)
+                            try
                             {
-                                finalString += $"<li><a href=\"{Url.Action("Index", new { id = raw.GetType().Name })}\">{raw}</a></li>";
+                                var collection = (IEnumerable)entityProperty.GetValue(value)!;
+                                var targetEntityType = Model.DbContext.Model.FindEntityType(entityProperty.PropertyType.GetGenericArguments().FirstOrDefault());
+                                var pkProperties = targetEntityType?.FindPrimaryKey()?.Properties;
+
+                                if (collection != null && pkProperties != null)
+                                {
+                                    return GenerateCollectionLinks(collection, pkProperties);
+                                }
                             }
-                        }
-                        catch(NullReferenceException) {}
-                        finalString += "</ul>";
-                        return finalString;
-                    } ).Encoded(false);
+                            catch (NullReferenceException) { }
+                            return string.Empty;
+                        });
             }
-             /*  if (entityProperty.PropertyType == typeof(Guid))
+            else if (navigations?.Any(n => n.Name == entityProperty.Name) == true)
             {
-                var lambda = Expression.Lambda<Func<object,Guid>>(property, entity);
+                // Handle foreign key navigation properties
+                var navigation = navigations.First(n => n.Name == entityProperty.Name);
+                var lambda = Expression.Lambda<Func<object, object>>(property, entity);
 
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-            else if (entityProperty.PropertyType == typeof(string))
-            {
-                var lambda = Expression.Lambda<Func<object,string>>(property, entity);
+                columns
+                    .Add(lambda)
+                    .Titled(propertyDisplayName)
+                    .Encoded(false)
+                    .RenderedAs(
+                        (value) =>
+                        {
+                            var item = navigation?.PropertyInfo?.GetValue(value);
+                            var targetEntityType = Model.DbContext.Model.FindEntityType(navigation.TargetEntityType.ClrType);
+                            var pkProperties = targetEntityType?.FindPrimaryKey()?.Properties;
 
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-            else if (entityProperty.PropertyType == typeof(Int32))
-            {
-                var lambda = Expression.Lambda<Func<object,Int32>>(property, entity);
+                            if (item != null && pkProperties != null)
+                            {
+                                return GenerateNavigationLink(item, pkProperties);
+                            }
 
-                columns.Add(lambda).Titled(propertyDisplayName);
+                            return string.Empty;
+                        });
+                    
             }
-            else if (entityProperty.PropertyType == typeof(DateTime))
-            {
-                var lambda = Expression.Lambda<Func<object,DateTime>>(property, entity);
-
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-            else if (entityProperty.PropertyType == typeof(DateTimeOffset))
-            {
-                var lambda = Expression.Lambda<Func<object,DateTimeOffset>>(property, entity);
-
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-            else if (entityProperty.PropertyType == typeof(double))
-            {
-                var lambda = Expression.Lambda<Func<object, double>>(property, entity);
-
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-            else if (entityProperty.PropertyType == typeof(decimal))
-            {
-                var lambda = Expression.Lambda<Func<object, decimal>>(property, entity);
-
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-              else if(entityProperty.PropertyType == typeof(decimal?)){
-                var lambda = Expression.Lambda<Func<object, decimal?>>(property, entity);
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-            else if(entityProperty.PropertyType == typeof(DateTime?)){
-                var lambda = Expression.Lambda<Func<object, DateTime?>>(property, entity);
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-             else if(entityProperty.PropertyType == typeof(int?)){
-                var lambda = Expression.Lambda<Func<object, int?>>(property, entity);
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-             else if(entityProperty.PropertyType == typeof(long?)){
-                var lambda = Expression.Lambda<Func<object, long?>>(property, entity);
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-             else if(entityProperty.PropertyType == typeof(long)){
-                var lambda = Expression.Lambda<Func<object, long>>(property, entity);
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }
-             else if(entityProperty.PropertyType == typeof(DateTimeOffset?)){
-                var lambda = Expression.Lambda<Func<object, DateTimeOffset?>>(property, entity);
-                columns.Add(lambda).Titled(propertyDisplayName);
-            }*/       
             else
             {
-                //Use reflection to build up lambda expression and call columns.Add(...) and Titled(...) for any field that can be rendered as text.
-                //This is equivalent to:
-                //if(entityProperty.PropertyType == typeof(Foo?)){
-                //  var lambda = Expression.Lambda<Func<object, Foo?>>(property, entity);
-                //  columns.Add(lambda).Titled(propertyDisplayName);
-                //}
-                //But avoids needing an else if for each possible type, nullable types, etc..
-               var funcType = typeof(Func<,>).MakeGenericType(typeof(object),entityProperty.PropertyType);              
-               var lambdaMethod = typeof(Expression).GetMethods(BindingFlags.Public|BindingFlags.Static).Where(m=>m.Name == "Lambda" && m.IsGenericMethod).First().MakeGenericMethod(funcType);
-               var lambda = lambdaMethod.Invoke(null,new object[]{property,new ParameterExpression[]{entity}});
-               var addMethod = columns.GetType().GetMethods(BindingFlags.Public|BindingFlags.Instance).Where(m=>m.Name=="Add" && m.IsGenericMethod).First();               
-               var column = addMethod.MakeGenericMethod(entityProperty.PropertyType).Invoke(columns,new object[]{lambda});
-               var titledMethod = typeof(GridColumnExtensions).GetMethods(BindingFlags.Static|BindingFlags.Public).Where(m=>m.Name=="Titled").First().MakeGenericMethod(typeof(object),entityProperty.PropertyType);
-               titledMethod.Invoke(null, new[]{column, propertyDisplayName});          
+                // Use reflection to dynamically build lambda expressions for other types
+                var funcType = typeof(Func<,>).MakeGenericType(typeof(object), entityProperty.PropertyType);
+
+                var lambdaMethod = typeof(Expression)
+                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .First(m => m.Name == "Lambda" && m.IsGenericMethod)
+                    .MakeGenericMethod(funcType);
+
+                var lambda = lambdaMethod
+                    .Invoke(null, new object[] { property, new ParameterExpression[] { entity } });
+
+                var addMethod = columns
+                    .GetType()
+                    .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .First(m => m.Name == "Add" && m.IsGenericMethod)
+                    .MakeGenericMethod(entityProperty.PropertyType);
+
+                var column = addMethod
+                    .Invoke(columns, new object[] { lambda });
+
+                var titledMethod = typeof(GridColumnExtensions)
+                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    .First(m => m.Name == "Titled")
+                    .MakeGenericMethod(typeof(object), entityProperty.PropertyType);
+
+                titledMethod.Invoke(null, new[] { column, propertyDisplayName });
             }
         }
 
-        // only supports single PKs, not composite ones
-        var pkProperties = Model.DbContext.Model.FindEntityTypes(Model.EntityType).First().FindPrimaryKey().Properties;
-        if (pkProperties.Count == 1)
+        // Support for composite primary keys
+        var pkProperties = entityType?.FindPrimaryKey()?.Properties;
+
+        if (pkProperties != null && pkProperties.Count > 0)
         {
-            var pKProperty = pkProperties.Single()?.PropertyInfo;
-
-            if (pKProperty != null)
-            {
-                columns.Add(item => Html.ActionLink(_localizer["Delete"], "DeleteEntity", new { dbSetName = Model.DbSetProperty.Name, Id = pKProperty.GetValue(item)}));
-                columns.Add(item => Html.ActionLink(@_localizer["Edit"], "EditEntity", new { dbSetName = Model.DbSetProperty.Name, Id = pKProperty.GetValue(item) }));
-            }
+            columns
+                .Add(item => item)
+                .Titled("Actions")
+                .Encoded(false)
+                .RenderedAs(
+                    item =>
+                    {
+                        return GenerateRowActionLinks(item, pkProperties);
+                    });
         }
-
-
-    }
-
-        )
+    })
     .Using(options.FilterMode)
     .Empty("No data found")
     .Filterable()
@@ -198,9 +276,9 @@
 
 @section Scripts
 {
-     <script>
-           document.querySelectorAll(".mvc-grid").forEach(element => new MvcGrid(element));
-        </script>
+    <script>
+        document.querySelectorAll(".mvc-grid").forEach(element => new MvcGrid(element));
+    </script>
 }
 
 
