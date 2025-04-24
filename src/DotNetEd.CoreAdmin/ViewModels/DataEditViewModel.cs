@@ -2,10 +2,10 @@ using System.Collections.Generic;
 
 namespace DotNetEd.CoreAdmin.ViewModels
 {
-    public class DataDeleteViewModel
+    public class DataEditViewModel
     {
         public string DbSetName { get; set; }
-        public object Object { get; set; }
+        public IDictionary<string, string> FormData { get; set; }
         public IEnumerable<KeyValuePair<string, object>> PrimaryKeys { get; set; }
     }
 }

@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
 	<PropertyGroup>
-		<TargetFrameworks>net6.0;net7.0</TargetFrameworks>
+		<!-- <TargetFrameworks>net6.0;net7.0</TargetFrameworks> -->
+		<TargetFramework>net9.0</TargetFramework>
 		<AddRazorSupportForMvc>true</AddRazorSupportForMvc>
 		<PreserveCompilationContext>false</PreserveCompilationContext>
 		<SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
@@ -42,9 +43,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Condition="'$(TargetFramework)' == 'net6.0'" Include="Microsoft.EntityFrameworkCore" Version="6.0.0" />
-		<PackageReference Condition="'$(TargetFramework)' == 'net7.0'" Include="Microsoft.EntityFrameworkCore" Version="7.0.0" />
-		<PackageReference Include="NonFactors.Grid.Core.Mvc6" Version="7.1.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="[9,)" />
+		<PackageReference Include="NonFactors.Grid.Core.Mvc6" Version="8.0.0" />
 	</ItemGroup>
 
 
