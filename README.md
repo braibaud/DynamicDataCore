@@ -1,4 +1,4 @@
-# Core Admin Panel for ASP.NET Core & .NET 6 / .NET 7
+# Core Admin Panel for ASP.NET Core v9
 
 [![.NET 6](https://github.com/edandersen/core-admin/actions/workflows/dotnet-core.yml/badge.svg)](https://github.com/edandersen/core-admin/actions/workflows/dotnet-core.yml)
 
@@ -22,39 +22,66 @@ The above screenshots are of the [Contoso University sample](https://github.com/
 
 Core Admin scans your app for Entity Framework DB Contexts and makes a nice set of CRUD screens for them.
 
-## Setting up with .NET 6 Minimal APIs (version 2.0.0+)
+## Setting up Core Admin with ASP.NET Core v9
 
-Add via nuget:
+To integrate Core Admin into your ASP.NET Core v9 application, follow these steps:
 
-```csharp
-dotnet add package CoreAdmin
-```
+1. **Install the NuGet package**:
 
-Add this line before ```var app = builder.Build();``` and after your DbContexts have been added to Services in Program.cs:
+   ```bash
+   dotnet add package CoreAdmin
+   ```
 
-```csharp
-builder.Services.AddCoreAdmin();
-```
+2. **Register Core Admin services**:
 
-You need to make sure Endpoints are enabled as they don't appear to be in the default templates. For example, add the following before ```app.Run();```:
+   Add the following line after registering your `DbContext` in `Program.cs`:
 
-```csharp
-app.MapDefaultControllerRoute();
-```
+   ```csharp
+   builder.Services.AddCoreAdmin();
+   ```
 
-## How to use with .NET Core 3.1 and .NET 5 (version <2.0.0)
+3. **Enable endpoints**:
 
-Add via nuget:
+   Ensure that endpoints are enabled in your application. Add the following line before `app.Run();`:
 
-```csharp
-dotnet add package CoreAdmin
-```
+   ```csharp
+   app.MapDefaultControllerRoute();
+   ```
 
-Add this line at the bottom of ConfigureServices() (and after your DbContexts have been added to Services) in Startup.cs:
+4. **Run the application**:
 
-```csharp
-services.AddCoreAdmin();
-```
+   Start your application and navigate to `/coreadmin` (e.g., `https://localhost:5001/coreadmin`) to access the admin panel.
+
+### Additional Configuration
+
+- **Custom URL**: To use a custom URL for the admin panel, add this line in `Program.cs`:
+
+   ```csharp
+   app.UseCoreAdminCustomUrl("custom-admin-url");
+   ```
+
+   You can then access the panel at `/custom-admin-url`.
+
+- **Custom Title**: To set a custom title for the admin panel, use:
+
+   ```csharp
+   app.UseCoreAdminCustomTitle("My Admin Panel");
+   ```
+
+- **Security**: For production environments, configure role-based security or custom authentication. For example:
+
+   ```csharp
+   builder.Services.AddCoreAdmin("Administrator");
+   ```
+
+   Or, for custom logic:
+
+   ```csharp
+   app.UseCoreAdminCustomAuth((serviceProvider) => Task.FromResult(true));
+   ```
+
+This setup ensures compatibility with ASP.NET Core v9 and provides flexibility for customization.
+
 ## Running the app
 
 Run your app with with /coreadmin on the end of the URL, for example https://localhost:5001/coreadmin and you'll get the app appearing as shown above.
@@ -207,7 +234,7 @@ The above will make it so that ```DatabaseEntityToIgnore``` is not shown.
 
 ### CDN Support for the built in static assets
 
-To use a CDN or serve the built in CSS and JS from another URL, copy the ```/css``` and ```/js``` folders from ```src/DotNetEd.CoreAdmin/wwwroot/``` to the root of your CDN. Then in ```Configure``` in Startup.cs, call the following method:
+To use a CDN or serve the built in CSS and JS from another URL, copy the ```/css``` and ```/js``` folders from ```src/DynamicDataCore/wwwroot/``` to the root of your CDN. Then in ```Configure``` in Startup.cs, call the following method:
 
 ```
  app.UseCoreAdminCdn("https://my-cdn-root.com");

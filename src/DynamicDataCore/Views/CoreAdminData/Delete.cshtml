@@ -1,0 +1,40 @@
+@using DynamicDataCore
+@using Microsoft.Extensions.Localization
+@model DynamicDataCore.ViewModels.DataDeleteViewModel
+@inject IStringLocalizer<JsonLocalizer> _localizer
+
+@{
+    ViewData["Page_Title"] = Model.DbSetName;
+    Layout = "_CoreAdminLayout";
+}
+
+<h1 class="display-4">@_localizer["DeleteConfirm"]</h1>
+
+<div class="row my-3">
+    <div class="col-lg-12">
+        @Html.DisplayFor(m => m.Object)
+    </div>
+</div>
+
+@using (Html.BeginForm("DeleteEntityPost", "CoreAdminData", new { }, FormMethod.Post))
+{
+    @Html.HiddenFor(m => m.DbSetName)
+
+    <!-- Add hidden fields for each primary key component -->
+    @foreach (var pk in Model.PrimaryKeys)
+    {
+        <input type="hidden" name="@(pk.Key)" value="@(pk.Value)" />
+    }
+
+    <button type="submit" class="btn btn-primary">
+        @_localizer["Delete"]
+    </button>
+
+    <p class="mt-2">
+        @Html.ActionLink(
+            _localizer["GoBack"], 
+            "Index", 
+            new { Id = Model.DbSetName }
+        )
+    </p>
+}

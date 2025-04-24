@@ -350,8 +350,8 @@ MigrationBackup/
 .ionide/
 /src/DotNetEd.AutoAdmin/out/
 /src/out/
-/src/DotNetEd.CoreAdmin/out/*
-/src/DotNetEd.CoreAdmin/out/*
-/src/DotNetEd.CoreAdmin/out/*
+/src/DynamicDataCore/out/*
+/src/DynamicDataCore/out/*
+/src/DynamicDataCore/out/*
 
 .DS_Store*

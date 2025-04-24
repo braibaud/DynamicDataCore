@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+		<PreserveCompilationContext>false</PreserveCompilationContext>
+		<SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
+		<PackageId>CoreAdmin</PackageId>
+		<PackageVersion>2.7.0</PackageVersion>
+		<Description>Core Admin Panel for ASP.NET Core</Description>
+		<Title>Core Admin Panel for ASP.NET Core</Title>
+		<Authors>braibaud</Authors>
+		<Copyright>Copyright © 2025 Benjamin Raibaud</Copyright>
+		<PackageProjectUrl>https://github.com/braibaud/core-admin</PackageProjectUrl>
+		<PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+		<Nullable>disable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Compile Remove="Areas\**" />
+		<Content Remove="Areas\**" />
+		<EmbeddedResource Remove="Areas\**" />
+		<None Remove="Areas\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Remove="Translations\en-us.json" />
+		<Content Remove="Translations\fr-FR.json" />
+		<Content Remove="Translations\it-IT.json" />
+		<Content Remove="Translations\ja-JP.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Include="Translations\it-IT.json" />
+		<EmbeddedResource Include="Translations\en-US.json" />
+		<EmbeddedResource Include="Translations\fr-FR.json" />
+		<EmbeddedResource Include="Translations\ja-JP.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="[9,)" />
+		<PackageReference Include="NonFactors.Grid.Core.Mvc6" Version="8.0.0" />
+	</ItemGroup>
+
+
+</Project>
