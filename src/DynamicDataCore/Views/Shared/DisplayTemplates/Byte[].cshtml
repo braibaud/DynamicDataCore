@@ -1,0 +1,12 @@
+@using DynamicDataCore
+@model byte[]
+
+@if (Model != null)
+{
+    string base64 = ImageUtils.WebBase64EncodeImageByteArrayOrNull(Model);
+
+    if (base64 != null)
+    {
+        <img height="128" src="@Html.Raw(base64)" />
+    }
+}

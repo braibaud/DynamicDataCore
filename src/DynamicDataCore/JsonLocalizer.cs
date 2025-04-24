@@ -16,10 +16,10 @@ namespace DynamicDataCore
 
         public JsonLocalizer(IHttpContextAccessor httpContextAccessor)
         {
-            var assembly = Assembly.GetExecutingAssembly();
-            foreach (var embeddedResource in assembly.GetManifestResourceNames().Where(e => e.EndsWith(".json")))
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            foreach (string embeddedResource in assembly.GetManifestResourceNames().Where(e => e.EndsWith(".json")))
             {
-                var textStreamReader = new StreamReader(assembly.GetManifestResourceStream(embeddedResource));
+                StreamReader textStreamReader = new StreamReader(assembly.GetManifestResourceStream(embeddedResource));
                 translations.Add(embeddedResource, JsonSerializer.Deserialize<Dictionary<string, string>>(textStreamReader.ReadToEnd()));
             }
 
@@ -32,12 +32,12 @@ namespace DynamicDataCore
 
         public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures)
         {
-            var cultureKeys = httpContextAccessor.HttpContext.Request.Headers["Accept-Language"];
+            Microsoft.Extensions.Primitives.StringValues cultureKeys = httpContextAccessor.HttpContext.Request.Headers["Accept-Language"];
 
-            foreach(var culture in cultureKeys)
+            foreach(string culture in cultureKeys)
             {
-                var fileName = $"{culture}.json";
-                var key = translations.Keys.FirstOrDefault(k => k.EndsWith(fileName));
+                string fileName = $"{culture}.json";
+                string key = translations.Keys.FirstOrDefault(k => k.EndsWith(fileName));
                 if (key != null)
                 {
                     return translations[key].Select(s => new LocalizedString(s.Key, s.Value));

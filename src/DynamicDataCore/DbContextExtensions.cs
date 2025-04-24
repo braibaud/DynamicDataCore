@@ -11,8 +11,8 @@ namespace DynamicDataCore
     {
         public static IQueryable<object> Set(this DbContext _context, Type t)
         {
-           var methods =  _context.GetType().GetMethods();
-            foreach (var method in methods.Where(p=>p.Name == "Set"))
+            System.Reflection.MethodInfo[] methods =  _context.GetType().GetMethods();
+            foreach (System.Reflection.MethodInfo method in methods.Where(p=>p.Name == "Set"))
             {
                 if(!method.GetParameters().Any())
                 return    (IQueryable<object>)method.MakeGenericMethod(t).Invoke(_context, null);

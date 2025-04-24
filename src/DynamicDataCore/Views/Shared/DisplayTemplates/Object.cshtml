@@ -1,0 +1,32 @@
+@* @using DynamicDataCore.Utilities
+@model object
+
+@if (Model != null)
+{
+    if (Model.GetType().IsGenericType && Model.GetType().GetGenericTypeDefinition() == typeof(Nullable<>))
+    {
+        // Handle nullable types
+        dynamic nullableModel = Model;
+
+        if (nullableModel.HasValue)
+        {
+            <span class="form-control-static">@nullableModel.Value.ToString(ViewData.ModelMetadata.GetDisplayFormat())</span>
+        }
+        else
+        {
+            <span class="form-control-static">-</span>
+        }
+    }
+    else
+    {
+        <span class="form-control-static">@string.Format(ViewData.ModelMetadata.GetDisplayFormat(), Model)</span>
+    }
+}
+else
+{
+    <span class="form-control-static">-</span>
+} *@
+
+@model object   
+
+<span class="form-control-static">@ViewData.TemplateInfo.FormattedModelValue</span>

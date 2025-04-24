@@ -1,5 +1,6 @@
 ﻿@using System.Collections
 @using DynamicDataCore
+@using DynamicDataCore.Utilities
 @using Microsoft.Extensions.Localization
 @using NonFactors.Mvc.Grid
 @using System.Linq.Expressions
@@ -23,7 +24,7 @@
             {
                 elements.Add(
                     pk.Name, 
-                    pk.PropertyInfo.GetValue(item)?.ToString() ?? "_null_");
+                    pk.PropertyInfo.GetValue(item)?.ToString() ?? TypeConverterUtility.NullValueString);
             }
         }
     }
@@ -64,12 +65,12 @@
     
     private string GenerateEditLink(object item, IEnumerable<IProperty> pkProperties)
     {
-        return GenerateActionLink(item, "Edit", pkProperties);
+        return GenerateActionLink(item, "EditEntity", pkProperties);
     }
 
     private string GenerateDeleteLink(object item, IEnumerable<IProperty> pkProperties)
     {
-        return GenerateActionLink(item, "Delete", pkProperties);
+        return GenerateActionLink(item, "DeleteEntity", pkProperties);
     }
 
     private string GenerateViewLink(object item, IEnumerable<IProperty> pkProperties)

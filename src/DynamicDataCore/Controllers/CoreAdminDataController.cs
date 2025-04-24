@@ -1,4 +1,5 @@
 ﻿using DynamicDataCore.ViewModels;
+using DynamicDataCore.Utilities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
@@ -27,12 +28,12 @@ namespace DynamicDataCore.Controllers
         [HttpGet]
         public IActionResult Index(string id)
         {
-            var viewModel = new DataListViewModel();
+            DataListViewModel viewModel = new DataListViewModel();
 
             if (id == null)
             {
                 // Get the first DbSetEntityType
-                var firstDbSetEntity = _dbSetEntities.FirstOrDefault();
+                DiscoveredDbSetEntityType firstDbSetEntity = _dbSetEntities.FirstOrDefault();
 
                 if (firstDbSetEntity != null)
                 {
@@ -40,25 +41,25 @@ namespace DynamicDataCore.Controllers
                 }
             }
 
-            foreach (var dbSetEntity in _dbSetEntities.Where(db => string.Compare(db.Name, id, StringComparison.InvariantCultureIgnoreCase) == 0))
+            foreach (DiscoveredDbSetEntityType dbSetEntity in _dbSetEntities.Where(db => string.Compare(db.Name, id, StringComparison.InvariantCultureIgnoreCase) == 0))
             {
-                foreach (var dbSetProperty in dbSetEntity.DbContextType.GetProperties())
+                foreach (PropertyInfo dbSetProperty in dbSetEntity.DbContextType.GetProperties())
                 {
                     if (dbSetProperty.PropertyType.IsGenericType && dbSetProperty.PropertyType.Name.StartsWith("DbSet") && dbSetProperty.Name.ToLowerInvariant() == id.ToLowerInvariant())
                     {
                         viewModel.EntityType = dbSetProperty.PropertyType.GetGenericArguments().First();
                         viewModel.DbSetProperty = dbSetProperty;
 
-                        var dbContextObject = (DbContext)this.HttpContext.RequestServices.GetRequiredService(dbSetEntity.DbContextType);
-                        var query = dbContextObject.Set(viewModel.EntityType);
+                        DbContext dbContextObject = (DbContext)this.HttpContext.RequestServices.GetRequiredService(dbSetEntity.DbContextType);
+                        IQueryable<object> query = dbContextObject.Set(viewModel.EntityType);
 
-                        var dbSetValue = dbSetProperty.GetValue(dbContextObject);
+                        object dbSetValue = dbSetProperty.GetValue(dbContextObject);
 
-                        var navProperties = dbContextObject.Model.FindEntityType(viewModel.EntityType).GetNavigations();
-                        foreach (var property in navProperties)
+                        IEnumerable<Microsoft.EntityFrameworkCore.Metadata.INavigation> navProperties = dbContextObject.Model.FindEntityType(viewModel.EntityType).GetNavigations();
+                        foreach (Microsoft.EntityFrameworkCore.Metadata.INavigation property in navProperties)
                         {
                             // Only display One to One relationships on the Grid
-                            if(property.GetCollectionAccessor() == null)    
+                            if (property.GetCollectionAccessor() == null)
                                 query = query.Include(property.Name);
                         }
 
@@ -77,42 +78,46 @@ namespace DynamicDataCore.Controllers
         }
 
         private object GetDbSetValueOrNull(
-            string dbSetName, 
+            string dbSetName,
             out DbContext dbContextObject,
             out Type typeOfEntity,
             out Dictionary<string, Dictionary<object, string>> relationships)
         {
-            foreach (var dbSetEntity in _dbSetEntities.Where(db => db.Name.ToLowerInvariant() == dbSetName.ToLowerInvariant()))
+            foreach (DiscoveredDbSetEntityType dbSetEntity in _dbSetEntities.Where(db => db.Name.ToLowerInvariant() == dbSetName.ToLowerInvariant()))
             {
-                foreach (var dbSetProperty in dbSetEntity.DbContextType.GetProperties())
+                foreach (PropertyInfo dbSetProperty in dbSetEntity.DbContextType.GetProperties())
                 {
                     if (dbSetProperty.PropertyType.IsGenericType && dbSetProperty.PropertyType.Name.StartsWith("DbSet") && dbSetProperty.Name.ToLowerInvariant() == dbSetName.ToLowerInvariant())
                     {
                         dbContextObject = (DbContext)this.HttpContext.RequestServices.GetRequiredService(dbSetEntity.DbContextType);
                         typeOfEntity = dbSetProperty.PropertyType.GetGenericArguments()[0];
 
-                        var entityType = dbContextObject.Model.FindEntityType(typeOfEntity);
-                        var foreignKeys = entityType.GetForeignKeys();
+                        Microsoft.EntityFrameworkCore.Metadata.IEntityType entityType = dbContextObject.Model.FindEntityType(typeOfEntity);
+                        IEnumerable<Microsoft.EntityFrameworkCore.Metadata.IForeignKey> foreignKeys = entityType.GetForeignKeys();
 
-                        var relationshipDictionary = new Dictionary<string, Dictionary<object, string>>();
-                        foreach (var fk in foreignKeys)
+                        Dictionary<string, Dictionary<object, string>> relationshipDictionary = new Dictionary<string, Dictionary<object, string>>();
+
+                        foreach (Microsoft.EntityFrameworkCore.Metadata.IForeignKey fk in foreignKeys)
                         {
-                            var childValues = new Dictionary<object, string>();
+                            Dictionary<object, string> childValues = new Dictionary<object, string>();
 
-                            var principalEntityType = fk.PrincipalEntityType;
-                            var principalDbSet = dbContextObject.GetType().GetProperties()
+                            Microsoft.EntityFrameworkCore.Metadata.IEntityType principalEntityType = fk.PrincipalEntityType;
+
+                            PropertyInfo principalDbSet = dbContextObject
+                                .GetType()
+                                .GetProperties()
                                 .FirstOrDefault(p => p.PropertyType.IsGenericType &&
                                                     p.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>) &&
                                                     p.PropertyType.GetGenericArguments().First() == principalEntityType.ClrType);
 
                             if (principalDbSet != null)
                             {
-                                var primaryKey = principalEntityType.FindPrimaryKey();
-                                var allChildren = (IEnumerable<object>)principalDbSet.GetValue(dbContextObject);
+                                Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = principalEntityType.FindPrimaryKey();
+                                IEnumerable<object> allChildren = (IEnumerable<object>)principalDbSet.GetValue(dbContextObject);
 
-                                foreach (var child in allChildren)
+                                foreach (object child in allChildren)
                                 {
-                                    var childPkValue = primaryKey.Properties.First().PropertyInfo.GetValue(child);
+                                    object childPkValue = primaryKey.Properties.First().PropertyInfo.GetValue(child);
                                     childValues.Add(childPkValue, child.ToString());
                                 }
                             }
@@ -140,7 +145,7 @@ namespace DynamicDataCore.Controllers
             out Type typeOfEntity,
             out Dictionary<string, Dictionary<object, string>> relationships)
         {
-            var dbSetValue = GetDbSetValueOrNull(dbSetName, out dbContextObject, out typeOfEntity, out relationships);
+            object dbSetValue = GetDbSetValueOrNull(dbSetName, out dbContextObject, out typeOfEntity, out relationships);
 
             if (dbSetValue == null || dbContextObject == null || typeOfEntity == null)
             {
@@ -150,24 +155,29 @@ namespace DynamicDataCore.Controllers
                 return null;
             }
 
-            var primaryKey = dbContextObject.Model.FindEntityType(typeOfEntity).FindPrimaryKey();
+            Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = dbContextObject.Model.FindEntityType(typeOfEntity).FindPrimaryKey();
             if (primaryKey == null)
             {
                 return null;
             }
 
             // Build the composite key values
-            var keyValues = primaryKey.Properties.Select(pk =>
-            {
-                var keyName = pk.Name;
-                if (!primaryKeys.TryGetValue(keyName, out var keyValue))
-                {
-                    return null; // Missing key value
-                }
+            object[] keyValues = primaryKey
+                .Properties
+                .Select(
+                    pk =>
+                    {
+                        string keyName = pk.Name;
 
-                // Convert the key value to the appropriate CLR type
-                return Convert.ChangeType(keyValue, pk.ClrType);
-            }).ToArray();
+                        if (!primaryKeys.TryGetValue(keyName, out string keyValue))
+                        {
+                            return null; // Missing key value
+                        }
+
+                        // Convert the key value to the appropriate CLR type
+                        return TypeConverterUtility.ConvertToType(keyValue, pk.ClrType);
+                    })
+                .ToArray();
 
             if (keyValues.Contains(null))
             {
@@ -185,15 +195,13 @@ namespace DynamicDataCore.Controllers
         }
 
         [HttpPost]
-        //[IgnoreAntiforgeryToken]
-        [ActionName("Create")]
         public async Task<IActionResult> CreateEntityPost(string dbSetName, [FromForm] object formData)
         {
-            var dbSetValue = GetDbSetValueOrNull(dbSetName, out var dbContextObject, out var entityType, out var relationships);
+            object dbSetValue = GetDbSetValueOrNull(dbSetName, out DbContext dbContextObject, out Type entityType, out Dictionary<string, Dictionary<object, string>> relationships);
 
-            var newEntity = Activator.CreateInstance(entityType);
+            object newEntity = Activator.CreateInstance(entityType);
 
-            var databaseGeneratedProperties = newEntity.GetType()
+            IEnumerable<string> databaseGeneratedProperties = newEntity.GetType()
                 .GetProperties()
                 .Where(p => p.GetCustomAttributes().Any(a => a.GetType().Name.Contains("DatabaseGenerated")))
                 .Select(p => p.Name);
@@ -205,7 +213,7 @@ namespace DynamicDataCore.Controllers
                 (ModelMetadata meta) => !databaseGeneratedProperties.Contains(meta.PropertyName));
 
             // Remove any errors from foreign key properties - EF will handle this validation
-            foreach (var fkProperty in newEntity.GetType().GetProperties()
+            foreach (string fkProperty in newEntity.GetType().GetProperties()
                 .Where(p => p.GetCustomAttributes().Any(a => a.GetType().Name.Contains("ForeignKey"))).Select(p => p.Name))
             {
                 if (ModelState.ContainsKey(fkProperty))
@@ -230,70 +238,74 @@ namespace DynamicDataCore.Controllers
         }
 
         [HttpGet]
-        //[IgnoreAntiforgeryToken]
         public IActionResult CreateEntity(string dbSetName, [FromQuery] IDictionary<string, string> primaryKeys)
         {
-            var dbSetValue = GetDbSetValueOrNull(dbSetName, out var dbContextObject, out var entityType, out var relationships);
-
-            if (dbSetValue == null || dbContextObject == null || entityType == null)
-            {
-                return NotFound();
-            }
-
-            var newEntity = Activator.CreateInstance(entityType);
-
-            // Pre-populate primary key values if provided
-            foreach (var pk in primaryKeys)
-            {
-                var property = entityType.GetProperty(pk.Key);
-                if (property != null)
-                {
-                    var convertedValue = Convert.ChangeType(pk.Value, property.PropertyType);
-                    property.SetValue(newEntity, convertedValue);
-                }
-            }
-
-            var autoGeneratedPropertyNames = newEntity.GetType()
-                .GetProperties()
-                .Where(p => p.GetCustomAttributes().Any(a => a.GetType().Name.Contains("DatabaseGenerated")))
-                .Select(p => p.Name);
-
-            ViewBag.DbSetName = dbSetName;
-            ViewBag.IgnoreFromForm = autoGeneratedPropertyNames;
-            ViewBag.Relationships = relationships;
-
-            return View(newEntity);
+            return RenderView(dbSetName, "Create", primaryKeys);
         }
 
         [HttpGet]
-        //[IgnoreAntiforgeryToken]
         public IActionResult EditEntity(string dbSetName, [FromQuery] IDictionary<string, string> primaryKeys)
         {
-            var dbSetValue = GetDbSetValueOrNull(dbSetName, out var dbContextObject, out var entityType, out var relationships);
+            return RenderView(dbSetName, "Edit", primaryKeys);
+        }
+
+        /// <summary>
+        /// Prepares a view for a specific entity by resolving the entity from the database context
+        /// using the provided DbSet name, view name, and primary key values.
+        /// </summary>
+        /// <param name="dbSetName">The name of the DbSet containing the entity.</param>
+        /// <param name="viewName">The name of the view to render.</param>
+        /// <param name="primaryKeys">
+        /// A dictionary containing the primary key names and their corresponding values as strings.
+        /// </param>
+        /// <returns>
+        /// An <see cref="IActionResult"/> that represents the result of the operation:
+        /// <list type="bullet">
+        /// <item><description><see cref="NotFound"/> if the DbSet, entity type, or entity cannot be found.</description></item>
+        /// <item><description><see cref="BadRequest"/> if any primary key values are missing or invalid.</description></item>
+        /// <item><description>A rendered view with the entity if successful.</description></item>
+        /// </list>
+        /// </returns>
+        private IActionResult RenderView(string dbSetName, string viewName, IDictionary<string, string> primaryKeys)
+        {
+            object dbSetValue = GetDbSetValueOrNull(
+                dbSetName,
+                out DbContext dbContextObject,
+                out Type entityType,
+                out Dictionary<string, Dictionary<object, string>> relationships);
 
             if (dbSetValue == null || dbContextObject == null || entityType == null)
             {
                 return NotFound();
             }
 
-            var primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
+            Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = dbContextObject
+                .Model
+                .FindEntityType(entityType)
+                .FindPrimaryKey();
+
             if (primaryKey == null)
             {
                 return NotFound();
             }
 
             // Build the composite key values
-            var keyValues = primaryKey.Properties.Select(pk =>
-            {
-                var keyName = pk.Name;
-                if (!primaryKeys.TryGetValue(keyName, out var keyValue))
-                {
-                    return null; // Missing key value
-                }
+            object[] keyValues = primaryKey
+                .Properties
+                .Select(
+                    pk =>
+                    {
+                        string keyName = pk.Name;
 
-                // Convert the key value to the appropriate CLR type
-                return Convert.ChangeType(keyValue, pk.ClrType);
-            }).ToArray();
+                        if (!primaryKeys.TryGetValue(keyName, out string keyValue))
+                        {
+                            return null; // Missing key value
+                        }
+
+                        // Convert the key value to the appropriate CLR type
+                        return TypeConverterUtility.ConvertToType(keyValue, pk.ClrType);
+                    })
+                .ToArray();
 
             if (keyValues.Contains(null))
             {
@@ -301,21 +313,23 @@ namespace DynamicDataCore.Controllers
             }
 
             // Find the entity using the composite key
-            var entityToEdit = dbSetValue.GetType().InvokeMember(
-                "Find",
-                BindingFlags.InvokeMethod,
-                null,
-                dbSetValue,
-                args: keyValues
-            );
+            object entity = dbSetValue
+                .GetType()
+                .InvokeMember(
+                    "Find",
+                    BindingFlags.InvokeMethod,
+                    null,
+                    dbSetValue,
+                    args: keyValues);
 
-            if (entityToEdit == null)
+            if (entity == null)
             {
                 return NotFound();
             }
 
             // Get database-generated properties
-            var databaseGeneratedProperties = entityToEdit.GetType()
+            IEnumerable<string> databaseGeneratedProperties = entity
+                .GetType()
                 .GetProperties()
                 .Where(p => p.GetCustomAttributes().Any(a => a.GetType().Name.Contains("DatabaseGenerated")))
                 .Select(p => p.Name);
@@ -325,14 +339,13 @@ namespace DynamicDataCore.Controllers
             ViewBag.Relationships = relationships;
             ViewBag.IgnoreFromForm = databaseGeneratedProperties;
 
-            return View("Edit", entityToEdit);
+            return View(viewName, entity);
         }
 
         [HttpPost]
-        [ActionName("Edit")]
         public async Task<IActionResult> EditEntityPost([FromForm] DataEditViewModel viewModel)
         {
-            var dbSetValue = GetDbSetValueOrNull(viewModel.DbSetName, out var dbContextObject, out var entityType, out var relationships);
+            object dbSetValue = GetDbSetValueOrNull(viewModel.DbSetName, out DbContext dbContextObject, out Type entityType, out Dictionary<string, Dictionary<object, string>> relationships);
 
             if (dbSetValue == null || dbContextObject == null || entityType == null)
             {
@@ -340,10 +353,10 @@ namespace DynamicDataCore.Controllers
             }
 
             // Build the composite key values
-            var primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
-            var keyValues = primaryKey.Properties.Select(pk =>
+            Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
+            object[] keyValues = primaryKey.Properties.Select(pk =>
             {
-                var keyValuePair = viewModel.PrimaryKeys.FirstOrDefault(kvp => kvp.Key == pk.Name);
+                KeyValuePair<string, object> keyValuePair = viewModel.PrimaryKeys.FirstOrDefault(kvp => kvp.Key == pk.Name);
                 if (keyValuePair.Equals(default(KeyValuePair<string, object>)))
                 {
                     return null; // Missing key value
@@ -359,7 +372,7 @@ namespace DynamicDataCore.Controllers
             }
 
             // Find the entity using the composite key
-            var entityToEdit = dbSetValue.GetType().InvokeMember(
+            object entityToEdit = dbSetValue.GetType().InvokeMember(
                 "Find",
                 BindingFlags.InvokeMethod,
                 null,
@@ -375,17 +388,17 @@ namespace DynamicDataCore.Controllers
             dbContextObject.Attach(entityToEdit);
 
             // Update the entity with form data
-            foreach (var formField in viewModel.FormData)
+            foreach (KeyValuePair<string, string> formField in viewModel.FormData)
             {
-                var property = entityType.GetProperty(formField.Key);
+                PropertyInfo property = entityType.GetProperty(formField.Key);
                 if (property != null)
                 {
-                    var convertedValue = Convert.ChangeType(formField.Value, property.PropertyType);
+                    object convertedValue = Convert.ChangeType(formField.Value, property.PropertyType);
                     property.SetValue(entityToEdit, convertedValue);
                 }
             }
 
-            var databaseGeneratedProperties = entityToEdit.GetType().GetProperties()
+            IEnumerable<string> databaseGeneratedProperties = entityToEdit.GetType().GetProperties()
                 .Where(p => p.GetCustomAttributes().Any(a => a.GetType().Name.Contains("DatabaseGenerated")))
                 .Select(p => p.Name);
 
@@ -409,47 +422,18 @@ namespace DynamicDataCore.Controllers
         [HttpGet]
         public IActionResult ViewEntity(string dbSetName, [FromQuery] IDictionary<string, string> primaryKeys)
         {
-            var dbSetValue = GetDbSetValueOrNull(dbSetName, out var dbContextObject, out var entityType, out _);
-
-            var primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
-
-            // Build the composite key values
-            var keyValues = primaryKey.Properties.Select(pk =>
-            {
-                var keyName = pk.Name;
-                var keyValue = primaryKeys.ContainsKey(keyName) ? primaryKeys[keyName] : null;
-
-                // Convert the key value to the appropriate CLR type
-                return Convert.ChangeType(keyValue, pk.ClrType);
-            }).ToArray();
-
-            // Find the entity using the composite key
-            var entityToView = dbSetValue.GetType().InvokeMember(
-                "Find",
-                BindingFlags.InvokeMethod,
-                null,
-                dbSetValue,
-                args: keyValues
-            );
-
-            if (entityToView == null)
-            {
-                return NotFound();
-            }
-
-            ViewBag.DbSetName = dbSetName;
-            return View("View", entityToView);
+            return RenderView(dbSetName, "View", primaryKeys);
         }
 
         private async Task AddByteArrayFiles(object entityToEdit)
         {
-            foreach (var file in Request.Form.Files)
+            foreach (Microsoft.AspNetCore.Http.IFormFile file in Request.Form.Files)
             {
-                var matchingProperty = entityToEdit.GetType().GetProperties()
+                PropertyInfo matchingProperty = entityToEdit.GetType().GetProperties()
                     .FirstOrDefault(prop => prop.Name == file.Name && prop.PropertyType == typeof(byte[]));
                 if (matchingProperty != null)
                 {
-                    var memoryStream = new MemoryStream();
+                    MemoryStream memoryStream = new MemoryStream();
                     await file.CopyToAsync(memoryStream);
                     matchingProperty.SetValue(entityToEdit, memoryStream.ToArray());
                 }
@@ -459,29 +443,29 @@ namespace DynamicDataCore.Controllers
         [HttpGet]
         public IActionResult DeleteEntity(string dbSetName, [FromQuery] IDictionary<string, string> primaryKeys)
         {
-            var entityType = _dbContext.Model.FindEntityType(dbSetName);
+            Microsoft.EntityFrameworkCore.Metadata.IEntityType entityType = _dbContext.Model.FindEntityType(dbSetName);
             if (entityType == null)
             {
                 return NotFound();
             }
 
-            var primaryKey = entityType.FindPrimaryKey();
+            Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = entityType.FindPrimaryKey();
             if (primaryKey == null)
             {
                 return NotFound();
             }
 
             // Build the composite key values
-            var keyValues = primaryKey.Properties.Select(pk =>
+            object[] keyValues = primaryKey.Properties.Select(pk =>
             {
-                var keyName = pk.Name;
-                if (!primaryKeys.TryGetValue(keyName, out var keyValue))
+                string keyName = pk.Name;
+                if (!primaryKeys.TryGetValue(keyName, out string keyValue))
                 {
                     return null; // Missing key value
                 }
 
                 // Convert the key value to the appropriate CLR type
-                return Convert.ChangeType(keyValue, pk.ClrType);
+                return TypeConverterUtility.ConvertToType(keyValue, pk.ClrType);
             }).ToArray();
 
             if (keyValues.Contains(null))
@@ -490,18 +474,18 @@ namespace DynamicDataCore.Controllers
             }
 
             // Find the entity using the composite key
-            var entity = _dbContext.Find(entityType.ClrType, keyValues);
+            object entity = _dbContext.Find(entityType.ClrType, keyValues);
             if (entity == null)
             {
                 return NotFound();
             }
 
             // Prepare the view model
-            var primaryKeysList = primaryKey.Properties
+            List<KeyValuePair<string, object>> primaryKeysList = primaryKey.Properties
                 .Select(pk => new KeyValuePair<string, object>(pk.Name, pk.PropertyInfo.GetValue(entity)))
                 .ToList();
 
-            var model = new DataDeleteViewModel
+            DataDeleteViewModel model = new DataDeleteViewModel
             {
                 DbSetName = dbSetName,
                 Object = entity,
@@ -512,34 +496,41 @@ namespace DynamicDataCore.Controllers
         }
 
         [HttpPost]
-        //[IgnoreAntiforgeryToken]
         [ActionName("Delete")]
         public async Task<IActionResult> DeleteEntityPost([FromForm] DataDeleteViewModel viewModel)
         {
-            foreach (var dbSetEntity in _dbSetEntities.Where(db => db.Name.ToLowerInvariant() == viewModel.DbSetName.ToLowerInvariant()))
+            foreach (DiscoveredDbSetEntityType dbSetEntity in _dbSetEntities.Where(db => db.Name.ToLowerInvariant() == viewModel.DbSetName.ToLowerInvariant()))
             {
-                foreach (var dbSetProperty in dbSetEntity.DbContextType.GetProperties())
+                foreach (PropertyInfo dbSetProperty in dbSetEntity.DbContextType.GetProperties())
                 {
                     if (dbSetProperty.PropertyType.IsGenericType && dbSetProperty.PropertyType.Name.StartsWith("DbSet") && dbSetProperty.Name.ToLowerInvariant() == viewModel.DbSetName.ToLowerInvariant())
                     {
-                        var dbContextObject = (DbContext)this.HttpContext.RequestServices.GetRequiredService(dbSetEntity.DbContextType);
-                        var dbSetValue = dbSetProperty.GetValue(dbContextObject);
+                        DbContext dbContextObject = (DbContext)this.HttpContext.RequestServices.GetRequiredService(dbSetEntity.DbContextType);
+                        object dbSetValue = dbSetProperty.GetValue(dbContextObject);
 
-                        var entityType = dbSetProperty.PropertyType.GetGenericArguments()[0];
-                        var primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
+                        Type entityType = dbSetProperty.PropertyType.GetGenericArguments()[0];
+                        Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
 
                         // Build the composite key values
-                        var keyValues = primaryKey.Properties.Select(pk =>
-                        {
-                            var keyName = pk.Name;
-                            var keyValue = viewModel.PrimaryKeys.FirstOrDefault(k => k.Key == keyName).Value;
+                        object[] keyValues = primaryKey
+                            .Properties
+                            .Select(
+                                pk =>
+                                {
+                                    string keyName = pk.Name;
 
-                            // Convert the key value to the appropriate CLR type
-                            return Convert.ChangeType(keyValue, pk.ClrType);
-                        }).ToArray();
+                                    object keyValue = viewModel
+                                        .PrimaryKeys
+                                        .FirstOrDefault(k => k.Key == keyName)
+                                        .Value;
+
+                                    // Convert the key value to the appropriate CLR type
+                                    return TypeConverterUtility.ConvertObjectToType(keyValue, pk.ClrType);
+                                })
+                            .ToArray();
 
                         // Find the entity using the composite key
-                        var entityToDelete = dbSetValue.GetType().InvokeMember(
+                        object entityToDelete = dbSetValue.GetType().InvokeMember(
                             "Find",
                             BindingFlags.InvokeMethod,
                             null,

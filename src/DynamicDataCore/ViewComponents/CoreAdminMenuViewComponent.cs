@@ -16,9 +16,9 @@ namespace DynamicDataCore.ViewComponents
 
         public IViewComponentResult Invoke()
         {
-            var viewModel = new MenuViewModel();
+            MenuViewModel viewModel = new MenuViewModel();
 
-            foreach(var dbSetEntity in dbSetEntities)
+            foreach(DiscoveredDbSetEntityType dbSetEntity in dbSetEntities)
             {
                 viewModel.DbContextNames.Add(dbSetEntity.DbContextType.Name);
                 viewModel.DbSetNames.Add(dbSetEntity.Name);

@@ -25,19 +25,16 @@
         <input type="hidden" name="@(pk.Key)" value="@(pk.Value)" />
     }
 
-    @Html.EditorForModel("DefaultEntity")
+    @Html.EditorForModel("DefaultEntity", new { htmlAttributes = new { @class = "form-control" } })
 
     <div class="row">
         <div class="col-md-12">
-            <button type="submit" class="btn btn-primary">
-                @_localizer["Edit"]
-            </button>
             <p class="mt-2">
-                @Html.ActionLink(
-                    @_localizer["GoBack"], 
-                    "Index", 
-                    new { Id = ViewBag.DbSetName }
-                )
+                <button type="submit" class="btn btn-primary">
+                    @_localizer["Edit"]
+                </button>
+                &nbsp;
+                @Html.ActionLink(@_localizer["GoBack"], "Index", new { Id = ViewBag.DbSetName }, new { @class = "btn btn-secondary" })
             </p>
         </div>
     </div>

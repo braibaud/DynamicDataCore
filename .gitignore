@@ -354,6 +354,7 @@ MigrationBackup/
 /src/DynamicDataCore/out/*
 /src/DynamicDataCore/out/*
 
+# MacOS Finder files
 .DS_Store
 *.DS_Store
 *.DS_Store*

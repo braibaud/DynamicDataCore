@@ -37,11 +37,11 @@ namespace DynamicDataCore
             }
             else
             {
-                foreach (var options in coreAdminOptions)
+                foreach (CoreAdminOptions options in coreAdminOptions)
                 {
                     if (options.RestrictToRoles != null && options.RestrictToRoles.Any())
                     {
-                        foreach (var role in options.RestrictToRoles)
+                        foreach (string role in options.RestrictToRoles)
                         {
                             if (context.HttpContext.User.IsInRole(role))
                             {

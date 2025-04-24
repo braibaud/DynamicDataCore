@@ -15,7 +15,7 @@ namespace Microsoft.Extensions.DependencyInjection
         [Obsolete("Use app.UseCoreAdminCustomAuth()")]
         public static void AddCoreAdmin(this IServiceCollection services, Func<Task<bool>> customAuthorisationMethod)
         {
-            var coreAdminOptions = new CoreAdminOptions();
+            CoreAdminOptions coreAdminOptions = new CoreAdminOptions();
 
             FindDbContexts(services, coreAdminOptions);
 
@@ -50,8 +50,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
         public static void AddCoreAdmin(this IServiceCollection services, params string[] restrictToRoles)
         {
-            
-            var coreAdminOptions = new CoreAdminOptions();
+
+            CoreAdminOptions coreAdminOptions = new CoreAdminOptions();
 
             FindDbContexts(services, coreAdminOptions);
 
@@ -81,8 +81,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
         public static void UseCoreAdminCdn(this IApplicationBuilder app, string cdnPath)
         {
-            var options = app.ApplicationServices.GetServices<CoreAdminOptions>();
-            foreach(var option in options)
+            IEnumerable<CoreAdminOptions> options = app.ApplicationServices.GetServices<CoreAdminOptions>();
+            foreach(CoreAdminOptions option in options)
             {
                 option.CdnPath = cdnPath;
             }
@@ -90,8 +90,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
         public static void UseCoreAdminCustomTitle(this IApplicationBuilder app, string customTitle)
         {
-            var options = app.ApplicationServices.GetServices<CoreAdminOptions>();
-            foreach (var option in options)
+            IEnumerable<CoreAdminOptions> options = app.ApplicationServices.GetServices<CoreAdminOptions>();
+            foreach (CoreAdminOptions option in options)
             {
                 option.Title = customTitle;
             }
@@ -99,8 +99,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
         public static void UseCoreAdminCustomAuth(this IApplicationBuilder app, Func<IServiceProvider, Task<bool>> customAuthFunction)
         {
-            var options = app.ApplicationServices.GetServices<CoreAdminOptions>();
-            foreach (var option in options)
+            IEnumerable<CoreAdminOptions> options = app.ApplicationServices.GetServices<CoreAdminOptions>();
+            foreach (CoreAdminOptions option in options)
             {
                 option.CustomAuthorisationMethodWithServiceProvider = customAuthFunction;
             }
@@ -109,21 +109,21 @@ namespace Microsoft.Extensions.DependencyInjection
         private static void FindDbContexts(IServiceCollection services, CoreAdminOptions options)
         {
             // remove previously discovered db contexts
-            var servicesToRemove = services.Where(s => s.ServiceType == typeof(DiscoveredDbSetEntityType)).ToList();
-            foreach(var serviceToRemove in servicesToRemove)
+            List<ServiceDescriptor> servicesToRemove = services.Where(s => s.ServiceType == typeof(DiscoveredDbSetEntityType)).ToList();
+            foreach(ServiceDescriptor serviceToRemove in servicesToRemove)
             {
                 services.Remove(serviceToRemove);
             }
 
-            var discoveredServices = new List<DiscoveredDbSetEntityType>();
-            foreach (var service in services.ToList())
+            List<DiscoveredDbSetEntityType> discoveredServices = new List<DiscoveredDbSetEntityType>();
+            foreach (ServiceDescriptor service in services.ToList())
             {
                 if (service.ImplementationType == null)
                     continue;
                 if (service.ImplementationType.IsSubclassOf(typeof(DbContext)) && 
                     !discoveredServices.Any(x => x.DbContextType == service.ImplementationType))
                 {
-                    foreach (var dbSetProperty in service.ImplementationType.GetProperties())
+                    foreach (System.Reflection.PropertyInfo dbSetProperty in service.ImplementationType.GetProperties())
                     {
                         // looking for DbSet<Entity>
                         if (dbSetProperty.PropertyType.IsGenericType && dbSetProperty.PropertyType.Name.StartsWith("DbSet"))
@@ -142,7 +142,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 }
             }
 
-            foreach (var service in discoveredServices)
+            foreach (DiscoveredDbSetEntityType service in discoveredServices)
             {
                 services.AddTransient(_ => service);
             }
