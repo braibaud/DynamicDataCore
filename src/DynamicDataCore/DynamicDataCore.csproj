@@ -11,7 +11,7 @@
 		<Title>Core Admin Panel for ASP.NET Core</Title>
 		<Authors>braibaud</Authors>
 		<Copyright>Copyright © 2025 Benjamin Raibaud</Copyright>
-		<PackageProjectUrl>https://github.com/braibaud/core-admin</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/braibaud/DynamicDataCore</PackageProjectUrl>
 		<PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
 		<Nullable>disable</Nullable>
 	</PropertyGroup>

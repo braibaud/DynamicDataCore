@@ -1,8 +1,8 @@
 # Core Admin Panel for ASP.NET Core v9
 
-[![.NET 6](https://github.com/edandersen/core-admin/actions/workflows/dotnet-core.yml/badge.svg)](https://github.com/edandersen/core-admin/actions/workflows/dotnet-core.yml)
+[![ASP.NET Core v9](https://github.com/braibaud/DynamicDataCore/actions/workflows/dotnet-core.yml/badge.svg)](https://github.com/braibaud/DynamicDataCore/actions/workflows/dotnet-core.yml)
 
-> [🤩 Click here to view a live demo on a really slow free Azure Web App instance that might go down at any time!](https://core-admin-demo.azurewebsites.net/)
+> [🤩 Click here to view a live demo on a really slow free Azure Web App instance that might go down at any time!](https://DynamicDataCore-demo.azurewebsites.net/)
 
 Fully automatic admin site generator for ASP.NET Core. Add one line of code, get loads of stuff. Features include:
 
@@ -250,7 +250,7 @@ If you see a 401 error when accessing /coreadmin it means you are running in a n
 
 You can find in this section some links about community content (writing, code samples, etc...). Don't hesitate to make a PR to add your own.
 
-* [Add an admin CRUD web page to your ASP.NET Core web app in 5 minutes using EF Core Power Tools and CoreAdmin](https://erikej.github.io/efcore/aspnet/2022/01/25/efcore-admin-crud.html) (Blog post from ErikEJ)
+* [Add an admin CRUD web page to your ASP.NET Core web app in 5 minutes using EF Core Power Tools and CoreAdmin](https://erikej.github.io/efcore/aspnet/2022/01/25/efDynamicDataCore-crud.html) (Blog post from ErikEJ)
 * [Sample project of a blog using ASP.net API with CoreAdmin (backend) and NextJS (frontend)](https://github.com/Brouilles/CoreAdmin_BlogSample) (Sample app with NextJS)
 
 ### License
@@ -259,4 +259,4 @@ LGPL licensed. Depends on the snazzy [NonFactors.Grid.Mvc6](https://github.com/N
 
 ### Authors
 
-Ed Andersen ([@edandersen](https://twitter.com/edandersen))
+Ed Andersen ([@braibaud](https://twitter.com/braibaud))

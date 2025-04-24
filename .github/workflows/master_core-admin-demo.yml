@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy ASP.Net Core app to Azure Web App - core-admin-demo
+name: Build and deploy ASP.Net Core app to Azure Web App - DynamicDataCore-demo
 
 on:
   push:
@@ -18,10 +18,10 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 7.0.x
+          dotnet-version: 9.x
 
       - name: dotnet publish
-        run: dotnet publish src\DynamicDataCore.DemoAppDotNet9\DynamicDataCore.DemoAppDotNet9.csproj -c Release -o "${{env.DOTNET_ROOT}}\myapp" --framework net7.0
+        run: dotnet publish src\DynamicDataCore.DemoAppDotNet9\DynamicDataCore.DemoAppDotNet9.csproj -c Release -o "${{env.DOTNET_ROOT}}\myapp" --framework net9.0
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v2
@@ -46,7 +46,7 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'core-admin-demo'
+          app-name: 'DynamicDataCore-demo'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_21D1316B63DB4C32B763C419FDE7FA79 }}
           package: .

@@ -1,7 +1,7 @@
 {
   "Create": "作成",
   "AccessDatabaseEntries": "データベースのデーターを左にアクセスしてください。",
-  "DevelopmentModeMessage": "今、開発モードですから、セキュリティはありません。ウェブサイトを読んでください： https://github.com/edandersen/core-admin.",
+  "DevelopmentModeMessage": "今、開発モードですから、セキュリティはありません。ウェブサイトを読んでください： https://github.com/edandersen/DynamicDataCore.",
   "CreateNew": "新しいアイテムを作成する",
   "GoBack": "戻る",
   "Edit": "編集",
