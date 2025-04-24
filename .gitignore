@@ -354,4 +354,7 @@ MigrationBackup/
 /src/DynamicDataCore/out/*
 /src/DynamicDataCore/out/*
 
-.DS_Store*
+.DS_Store
+*.DS_Store
+*.DS_Store*
+
