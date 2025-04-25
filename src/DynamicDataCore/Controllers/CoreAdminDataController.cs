@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace DynamicDataCore.Controllers
 {
@@ -17,6 +18,7 @@ namespace DynamicDataCore.Controllers
     public class CoreAdminDataController : Controller
     {
         private readonly IEnumerable<DiscoveredDbSetEntityType> _dbSetEntities;
+
         private readonly DbContext _dbContext;
 
         public CoreAdminDataController(IEnumerable<DiscoveredDbSetEntityType> dbSetEntities, DbContext dbContext)
@@ -55,8 +57,8 @@ namespace DynamicDataCore.Controllers
 
                         object dbSetValue = dbSetProperty.GetValue(dbContextObject);
 
-                        IEnumerable<Microsoft.EntityFrameworkCore.Metadata.INavigation> navProperties = dbContextObject.Model.FindEntityType(viewModel.EntityType).GetNavigations();
-                        foreach (Microsoft.EntityFrameworkCore.Metadata.INavigation property in navProperties)
+                        IEnumerable<INavigation> navProperties = dbContextObject.Model.FindEntityType(viewModel.EntityType).GetNavigations();
+                        foreach (INavigation property in navProperties)
                         {
                             // Only display One to One relationships on the Grid
                             if (property.GetCollectionAccessor() == null)
@@ -83,58 +85,81 @@ namespace DynamicDataCore.Controllers
             out Type typeOfEntity,
             out Dictionary<string, Dictionary<object, string>> relationships)
         {
-            foreach (DiscoveredDbSetEntityType dbSetEntity in _dbSetEntities.Where(db => db.Name.ToLowerInvariant() == dbSetName.ToLowerInvariant()))
+            DiscoveredDbSetEntityType dbSetEntity = _dbSetEntities
+                .FirstOrDefault(db => TypeConverterUtility.EqualsIgnoringCase(db.Name, dbSetName));
+
+            if (dbSetEntity != null)
             {
-                foreach (PropertyInfo dbSetProperty in dbSetEntity.DbContextType.GetProperties())
+                PropertyInfo dbSetProperty = dbSetEntity
+                    .DbContextType
+                    .GetProperties()
+                    .FirstOrDefault(p => p.PropertyType == dbSetEntity.DbSetType);
+                
+                if (dbSetProperty != null)
                 {
-                    if (dbSetProperty.PropertyType.IsGenericType && dbSetProperty.PropertyType.Name.StartsWith("DbSet") && dbSetProperty.Name.ToLowerInvariant() == dbSetName.ToLowerInvariant())
+                    // Get the database context for the DbSet
+                    dbContextObject = (DbContext)HttpContext.RequestServices.GetRequiredService(dbSetEntity.DbContextType);
+
+                    // Get the type of the entity for the DbSet
+                    typeOfEntity = dbSetProperty.PropertyType.GetGenericArguments().First();
+
+                    // Get the entity type from the DbContext
+                    IEntityType entityType = dbContextObject.Model.FindEntityType(typeOfEntity);
+
+                    // Get the foreign keys for the entity type
+                    IEnumerable<IForeignKey> foreignKeys = entityType.GetForeignKeys();
+
+                    Dictionary<string, Dictionary<object, string>> relationshipDictionary = new Dictionary<string, Dictionary<object, string>>();
+
+                    foreach (IForeignKey fk in foreignKeys)
                     {
-                        dbContextObject = (DbContext)this.HttpContext.RequestServices.GetRequiredService(dbSetEntity.DbContextType);
-                        typeOfEntity = dbSetProperty.PropertyType.GetGenericArguments()[0];
+                        Dictionary<object, string> childValues = new Dictionary<object, string>();
 
-                        Microsoft.EntityFrameworkCore.Metadata.IEntityType entityType = dbContextObject.Model.FindEntityType(typeOfEntity);
-                        IEnumerable<Microsoft.EntityFrameworkCore.Metadata.IForeignKey> foreignKeys = entityType.GetForeignKeys();
+                        IEntityType principalEntityType = fk.PrincipalEntityType;
 
-                        Dictionary<string, Dictionary<object, string>> relationshipDictionary = new Dictionary<string, Dictionary<object, string>>();
-
-                        foreach (Microsoft.EntityFrameworkCore.Metadata.IForeignKey fk in foreignKeys)
-                        {
-                            Dictionary<object, string> childValues = new Dictionary<object, string>();
-
-                            Microsoft.EntityFrameworkCore.Metadata.IEntityType principalEntityType = fk.PrincipalEntityType;
-
-                            PropertyInfo principalDbSet = dbContextObject
-                                .GetType()
-                                .GetProperties()
-                                .FirstOrDefault(p => p.PropertyType.IsGenericType &&
-                                                    p.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>) &&
-                                                    p.PropertyType.GetGenericArguments().First() == principalEntityType.ClrType);
-
-                            if (principalDbSet != null)
-                            {
-                                Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = principalEntityType.FindPrimaryKey();
-                                IEnumerable<object> allChildren = (IEnumerable<object>)principalDbSet.GetValue(dbContextObject);
-
-                                foreach (object child in allChildren)
+                        PropertyInfo principalDbSet = dbContextObject
+                            .GetType()
+                            .GetProperties()
+                            .FirstOrDefault(
+                                p => 
                                 {
-                                    object childPkValue = primaryKey.Properties.First().PropertyInfo.GetValue(child);
-                                    childValues.Add(childPkValue, child.ToString());
-                                }
-                            }
+                                    var __GetGenericTypeDefinition = p.PropertyType.GetGenericTypeDefinition();
+                                    var __GetGenericArguments = p.PropertyType.GetGenericArguments().FirstOrDefault();
 
-                            relationshipDictionary.Add(fk.Properties.First().Name, childValues);
+                                    bool __b1 = (p.PropertyType.IsGenericType);
+                                    bool __b2 = (__GetGenericTypeDefinition == typeof(DbSet<>));
+                                    bool __b3 = (__GetGenericArguments == principalEntityType.ClrType);
+
+                                    return p.PropertyType.IsGenericType &&
+                                           p.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>) &&
+                                           p.PropertyType.GetGenericArguments().First() == principalEntityType.ClrType;
+                                });
+
+                        if (principalDbSet != null)
+                        {
+                            IKey primaryKey = principalEntityType.FindPrimaryKey();
+                            IEnumerable<object> allChildren = (IEnumerable<object>)principalDbSet.GetValue(dbContextObject);
+
+                            foreach (object child in allChildren)
+                            {
+                                object childPkValue = primaryKey.Properties.First().PropertyInfo.GetValue(child);
+                                childValues.Add(childPkValue, child.ToString());
+                            }
                         }
 
-                        relationships = relationshipDictionary;
-
-                        return dbSetProperty.GetValue(dbContextObject);
+                        relationshipDictionary.Add(fk.Properties.First().Name, childValues);
                     }
+
+                    relationships = relationshipDictionary;
+
+                    return dbSetProperty.GetValue(dbContextObject);
                 }
             }
 
             dbContextObject = null;
             typeOfEntity = null;
             relationships = null;
+
             return null;
         }
 
@@ -155,7 +180,7 @@ namespace DynamicDataCore.Controllers
                 return null;
             }
 
-            Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = dbContextObject.Model.FindEntityType(typeOfEntity).FindPrimaryKey();
+            IKey primaryKey = dbContextObject.Model.FindEntityType(typeOfEntity).FindPrimaryKey();
             if (primaryKey == null)
             {
                 return null;
@@ -231,7 +256,7 @@ namespace DynamicDataCore.Controllers
             }
 
             ViewBag.DbSetName = dbSetName;
-            ViewBag.IgnoreFromForm = databaseGeneratedProperties;
+            ViewBag.GeneratedProperties = databaseGeneratedProperties;
             ViewBag.Relationships = relationships;
 
             return View("Create", newEntity);
@@ -279,7 +304,7 @@ namespace DynamicDataCore.Controllers
                 return NotFound();
             }
 
-            Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = dbContextObject
+            IKey primaryKey = dbContextObject
                 .Model
                 .FindEntityType(entityType)
                 .FindPrimaryKey();
@@ -337,7 +362,7 @@ namespace DynamicDataCore.Controllers
             ViewBag.DbSetName = dbSetName;
             ViewBag.PrimaryKeys = primaryKeys;
             ViewBag.Relationships = relationships;
-            ViewBag.IgnoreFromForm = databaseGeneratedProperties;
+            ViewBag.GeneratedProperties = databaseGeneratedProperties;
 
             return View(viewName, entity);
         }
@@ -353,7 +378,7 @@ namespace DynamicDataCore.Controllers
             }
 
             // Build the composite key values
-            Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
+            IKey primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
             object[] keyValues = primaryKey.Properties.Select(pk =>
             {
                 KeyValuePair<string, object> keyValuePair = viewModel.PrimaryKeys.FirstOrDefault(kvp => kvp.Key == pk.Name);
@@ -414,7 +439,7 @@ namespace DynamicDataCore.Controllers
 
             ViewBag.DbSetName = viewModel.DbSetName;
             ViewBag.Relationships = relationships;
-            ViewBag.IgnoreFromForm = databaseGeneratedProperties;
+            ViewBag.GeneratedProperties = databaseGeneratedProperties;
 
             return View("Edit", entityToEdit);
         }
@@ -443,13 +468,13 @@ namespace DynamicDataCore.Controllers
         [HttpGet]
         public IActionResult DeleteEntity(string dbSetName, [FromQuery] IDictionary<string, string> primaryKeys)
         {
-            Microsoft.EntityFrameworkCore.Metadata.IEntityType entityType = _dbContext.Model.FindEntityType(dbSetName);
+            IEntityType entityType = _dbContext.Model.FindEntityType(dbSetName);
             if (entityType == null)
             {
                 return NotFound();
             }
 
-            Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = entityType.FindPrimaryKey();
+            IKey primaryKey = entityType.FindPrimaryKey();
             if (primaryKey == null)
             {
                 return NotFound();
@@ -509,7 +534,7 @@ namespace DynamicDataCore.Controllers
                         object dbSetValue = dbSetProperty.GetValue(dbContextObject);
 
                         Type entityType = dbSetProperty.PropertyType.GetGenericArguments()[0];
-                        Microsoft.EntityFrameworkCore.Metadata.IKey primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
+                        IKey primaryKey = dbContextObject.Model.FindEntityType(entityType).FindPrimaryKey();
 
                         // Build the composite key values
                         object[] keyValues = primaryKey

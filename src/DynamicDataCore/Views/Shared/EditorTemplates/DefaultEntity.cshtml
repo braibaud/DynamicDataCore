@@ -2,8 +2,8 @@
 
     bool ShouldShow(Microsoft.AspNetCore.Mvc.ModelBinding.ModelMetadata metadata)
     {
-        var shouldIgnore = ViewBag.IgnoreFromForm != null 
-            && ((IEnumerable<string>)ViewBag.IgnoreFromForm).Contains(metadata.PropertyName);
+        var shouldIgnore = ViewBag.GeneratedProperties != null 
+            && ((IEnumerable<string>)ViewBag.GeneratedProperties).Contains(metadata.PropertyName);
 
         if (metadata.ShowForDisplay && metadata.ModelType.Name == "Byte[]" && !shouldIgnore)
         {
@@ -15,6 +15,7 @@
     } 
     
 }
+
 @if (ViewData.TemplateInfo.TemplateDepth > 1)
 {
     if (Model == null)

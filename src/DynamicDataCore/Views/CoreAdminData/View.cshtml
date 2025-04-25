@@ -6,27 +6,49 @@
     Layout = "_CoreAdminLayout";
 }
 
-<h1 class="display-4">@ViewBag.DbSetName > <i>@_localizer["View"]</i></h1>
+<span class="page-header">
+    <h1>
+        @ViewBag.DbSetName
+        <small>
+            @_localizer["View"]
+        </small>
+    </h1>
+</span>
 
-<dl class="row">
+<form>
+    @* <fieldset disabled> *@
     @foreach (var property in ViewData.ModelMetadata.Properties)
     {
         object propertyValue = Model.GetType().GetProperty(property.PropertyName)?.GetValue(Model);
         bool isRequired = property.IsRequired; // Check if the field is required
         bool isPrimaryKey = ViewBag.PrimaryKeys.Keys.Contains(property.PropertyName) ?? false; // Check if the field is a primary key
 
-        <dt class="col-sm-3">
-            <span style="@(isPrimaryKey ? "text-decoration: underline;" : "") text-end">
-                @Html.Label(property.PropertyName)
-                @if (isRequired)
-                {
-                    <span class="text-danger">*</span>
-                }
-            </span>
+        <div class="form-group row">
+            
+            <label for="input_@property.PropertyName" class="col-sm-3 col-form-label">
+                @property.GetDisplayName()
+            </label>
+
+            <div class="col-sm-9">
+                @Html.Display(property.PropertyName, $"input_{property.PropertyName}", propertyValue)
+            </div>
+
+        </div>
+
+
+        <dt>
+            @property.GetDisplayName()
+            @if (isRequired || isPrimaryKey)
+            {
+                <span class="text-danger">*</span>
+            }
         </dt>
-        <dd class="col-sm-9">@Html.Display(property.PropertyName, propertyValue)</dd>
+        <dd class="@(isPrimaryKey ? "text-info" : "")">
+            
+        </dd>
     }
-</dl>
+    @* </fieldset> *@
+</form>
 
 <h3 class="display-3">Html.ActionLink</h3>
 

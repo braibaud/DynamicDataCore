@@ -60,7 +60,7 @@
 
     private string GenerateNavigationLink(object item, IEnumerable<IProperty> pkProperties)
     {
-        return GenerateLink(item, "Index", item.ToString(), pkProperties);
+        return GenerateLink(item, "ViewEntity", item.ToString(), pkProperties);
     }
     
     private string GenerateEditLink(object item, IEnumerable<IProperty> pkProperties)
@@ -95,9 +95,9 @@
     {
         var finalString = new System.Text.StringBuilder("<ul>");
 
-        foreach (var raw in collection)
+        foreach (var item in collection)
         {
-            finalString.Append($"<li>{GenerateNavigationLink(raw, pkProperties)}</li>");
+            finalString.Append($"<li>{GenerateNavigationLink(item, pkProperties)}</li>");
         }
 
         finalString.Append("</ul>");
@@ -112,7 +112,7 @@
 
     var options = CoreAdminOptions.FirstOrDefault();
     var entityType = Model.DbContext.Model.FindEntityType(Model.EntityType);
-    var navigations = entityType?.GetNavigations();
+    var navigations = entityType.GetNavigations();
 }
 
 
@@ -146,13 +146,19 @@
                         continue;
 
                     if (!string.IsNullOrEmpty(displayAttribute.Description))
+                    {
                         propertyDisplayName = displayAttribute.Description;
+                    }
                 }
             }
             else if (entityProperty.PropertyType == typeof(Boolean))
             {
                 var lambda = Expression.Lambda<Func<object, Boolean>>(property, entity);
-                columns.Add(lambda).RenderedAs(m => Html.CheckBox(entityProperty.Name, lambda.Compile().Invoke(m))).Titled(propertyDisplayName);
+
+                columns
+                    .Add(lambda)
+                    .Titled(propertyDisplayName)
+                    .RenderedAs(m => Html.CheckBox(entityProperty.Name, lambda.Compile().Invoke(m)));
             }
             else if (entityProperty.PropertyType == typeof(byte[]))
             {
@@ -176,18 +182,15 @@
                     .RenderedAs(
                         value =>
                         {
-                            try
-                            {
-                                var collection = (IEnumerable)entityProperty.GetValue(value)!;
-                                var targetEntityType = Model.DbContext.Model.FindEntityType(entityProperty.PropertyType.GetGenericArguments().FirstOrDefault());
-                                var pkProperties = targetEntityType?.FindPrimaryKey()?.Properties;
+                            var collection = (IEnumerable)entityProperty.GetValue(value)!;
+                            var targetEntityType = Model.DbContext.Model.FindEntityType(entityProperty.PropertyType.GetGenericArguments().FirstOrDefault());
+                            var pkProperties = targetEntityType?.FindPrimaryKey()?.Properties;
 
-                                if (collection != null && pkProperties != null)
-                                {
-                                    return GenerateCollectionLinks(collection, pkProperties);
-                                }
+                            if (collection != null && pkProperties != null)
+                            {
+                                return GenerateCollectionLinks(collection, pkProperties);
                             }
-                            catch (NullReferenceException) { }
+
                             return string.Empty;
                         });
             }

@@ -131,5 +131,18 @@ namespace DynamicDataCore.Utilities
                 throw new InvalidCastException($"Cannot convert '{value}' of type {value.GetType().Name} to {targetType.Name}.", ex);
             }
         }
+
+        public static T Coalesce<T>(params T[] values)
+        {
+            foreach (var value in values)
+            {
+                if (value != null)
+                {
+                    return value;
+                }
+            }
+            
+            return default!;
+        }
     }
 }

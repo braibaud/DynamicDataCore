@@ -3,8 +3,6 @@
 
 @if (Model != null)
 {
-    if (Model.GetType().IsGenericType && Model.GetType().GetGenericTypeDefinition() == typeof(Nullable<>))
-    {
         // Handle nullable types
         dynamic nullableModel = Model;
 
@@ -28,5 +26,8 @@ else
 } *@
 
 @model object   
+@{
+    Model.GetType().GetProperty("Id")?.GetValue(Model);
 
+}
 <span class="form-control-static">@ViewData.TemplateInfo.FormattedModelValue</span>

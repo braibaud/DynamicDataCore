@@ -6,14 +6,18 @@ namespace DynamicDataCore.Utilities
     {
         public static string GetDisplayFormat(this ModelMetadata metadata)
         {
-            if (metadata == null) 
-            {
-                return null;
-            }
+            return TypeConverterUtility.Coalesce(
+                metadata?.AdditionalValues["DisplayFormat"]?.ToString(),
+                metadata?.DisplayFormatString);
+        }
 
-            return metadata.AdditionalValues.ContainsKey("DisplayFormat")
-                ? metadata.AdditionalValues["DisplayFormat"].ToString()
-                : metadata.DisplayFormatString ?? null;
+        public static string GetDisplayName(this ModelMetadata metadata)
+        {
+            return TypeConverterUtility.Coalesce(
+                metadata?.AdditionalValues["DisplayName"]?.ToString(),
+                metadata?.DisplayName,
+                metadata?.PropertyName,
+                metadata?.Name);
         }
     }
 }
